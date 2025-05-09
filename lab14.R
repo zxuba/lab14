@@ -88,3 +88,28 @@ ggplot(data=WASDE, aes(x=SUR, y=resid(reg2))) +
   ggtitle("Non-linear Regression Errors vs. Stock-to-Use Ratio") +
   labs(y="Errors", x="Stock-to-Use Ratio")
 
+##Time analysis
+# Create a character variable denoting the two time periods, create a dummy variable for the post-2006 period, graph a scatterplot of price on SUR with unique colors and regression lines for each period
+WASDE$period <- ifelse(WASDE$year >= 2006, "2006-2019", "1973-2005")
+WASDE$P2006 <- as.numeric(WASDE$year >= 2006)
+
+ggplot(data=WASDE, aes(x=SUR, y=corn_price, color=period)) +
+  geom_point(shape=1) +
+  geom_smooth(method=lm, se=FALSE) +
+  ggtitle("Corn Prices vs. Stock-to-Use Ratio (1973–2019)") +
+  labs(y="Corn Price ($)", x="Stock-to-Use Ratio")
+
+# Run a linear regression with time period specific
+reg3 <- lm(corn_price ~ SUR + P2006 + SUR:P2006, data=WASDE)
+summary(reg3)
+tbl_regression(reg3, intercept = TRUE) %>%
+  add_glance_source_note(include = c(r.squared, nobs))
+
+# Collect the residuals from the last regression, create a time series of the errors with a one-year lag of the error, then regress the error terms on the lagged error terms
+error <- ts(resid(reg3), start=1973, end=2019, frequency=1)   # the ts() function tells R to set the errors as a time-series 
+lag_error <- stats::lag(error, -1)                                   # the lag() function creates a one-period lag of the error term
+error <- cbind(error, lag_error)                              # cbind() binds the specified vectors together as columns to create a new data frame
+
+reg4 <- lm(error ~ lag_error, data=error)
+
+summary(reg4)
